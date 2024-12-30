@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>书签导航</title>
+    <!-- 引入 Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 基本样式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* 侧边栏样式 */
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #34495e;
+        }
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 1px solid #34495e;
+            padding-bottom: 10px;
+        }
+        /* 文件夹列表样式 */
+        .folder-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .folder-item {
+            cursor: pointer;
+            padding: 8px 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+        .folder-item:hover {
+            background-color: #34495e;
+        }
+        .folder-item .folder-name {
+            display: flex;
+            align-items: center;
+        }
+        .folder-item .folder-name i {
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+        .folder-item.open > .folder-name i {
+            transform: rotate(90deg);
+        }
+        /* 子文件夹容器 */
+        .subfolders {
+            list-style: none;
+            padding-left: 20px;
+            display: none;
+        }
+        .folder-item.open > .subfolders {
+            display: block;
+        }
+        /* 主内容区样式 */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            background-color: #ecf0f1;
+        }
+        .main-content h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        /* 搜索框样式 */
+        #search-input {
+            display: block;
+            margin: 0 auto 30px auto;
+            padding: 10px 15px;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 25px;
+            border: 1px solid #bdc3c7;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        #search-input:focus {
+            border-color: #2980b9;
+            outline: none;
+        }
+        /* 书签网格样式 */
+        .bookmark-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+        }
+        .bookmark {
+            background-color: #ffffff;
+            border: 1px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+        }
+        .bookmark:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .bookmark img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            margin-bottom: 10px;
+        }
+        .bookmark a {
+            text-decoration: none;
+            color: #2980b9;
+            font-size: 16px;
+            display: block;
+            word-wrap: break-word;
+        }
+        .bookmark a:hover {
+            color: #1abc9c;
+        }
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+            }
+            #search-input {
+                width: 90%;
+            }
+        }
+        @media (max-width: 480px) {
+            .sidebar {
+                display: none;
+            }
+            body {
+                flex-direction: column;
+            }
+            .main-content {
+                padding: 10px;
+            }
+            .bookmark-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 15px;
+            }
+            .bookmark img {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <h2>文件夹</h2>
+        <ul class="folder-list" id="folder-list">
+            <!-- 文件夹将通过JavaScript动态加载 -->
+        </ul>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <h1>我的书签导航</h1>
+
+        <!-- 搜索框 -->
+        <input type="text" id="search-input" placeholder="搜索书签...">
+
+        <!-- 书签网格 -->
+        <div class="bookmark-grid" id="bookmark-grid">
+            <!-- 书签将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 递归函数，用于创建文件夹列表项
+         * @param {Object} item - 文件夹对象
+         * @returns {HTMLElement} - 创建的HTML元素
+         */
+        function createFolderItem(item) {
+            if (item.type !== 'folder') return null;
+
+            // 创建文件夹列表项
+            const li = document.createElement('li');
+            li.className = 'folder-item';
+
+            // 创建文件夹名称部分
+            const folderNameDiv = document.createElement('div');
+            folderNameDiv.className = 'folder-name';
+            folderNameDiv.innerHTML = `<i class="fa fa-chevron-right"></i> ${item.title}`;
+            li.appendChild(folderNameDiv);
+
+            // 如果有子文件夹，递归创建
+            if (item.children && item.children.length > 0) {
+                const subfoldersUl = document.createElement('ul');
+                subfoldersUl.className = 'subfolders';
+                item.children.forEach(child => {
+                    if (child.type === 'folder') {
+                        const childLi = createFolderItem(child);
+                        if (childLi) subfoldersUl.appendChild(childLi);
+                    }
+                });
+                li.appendChild(subfoldersUl);
+            }
+
+            // 添加点击事件，展开或折叠文件夹
+            folderNameDiv.addEventListener('click', (e) => {
+                e.stopPropagation(); // 防止事件冒泡
+                li.classList.toggle('open');
+                const isOpen = li.classList.contains('open');
+                const icon = folderNameDiv.querySelector('i.fa-chevron-right, i.fa-chevron-down');
+                if (isOpen) {
+                    icon.classList.remove('fa-chevron-right');
+                    icon.classList.add('fa-chevron-down');
+                } else {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-right');
+                }
+            });
+
+            return li;
+        }
+
+        /**
+         * 递归函数，用于获取所有书签
+         * @param {Array} items - 书签和文件夹数组
+         * @returns {Array} - 书签数组
+         */
+        function getAllBookmarks(items) {
+            let bookmarks = [];
+            items.forEach(item => {
+                if (item.type === 'link') {
+                    bookmarks.push(item);
+                } else if (item.type === 'folder' && item.children) {
+                    bookmarks = bookmarks.concat(getAllBookmarks(item.children));
+                }
+            });
+            return bookmarks;
+        }
+
+        /**
+         * 递归函数，用于根据文件夹选择显示书签
+         * @param {Object} item - 文件夹对象
+         * @returns {Array} - 书签数组
+         */
+        function getBookmarksByFolder(item) {
+            let bookmarks = [];
+            if (item.type === 'folder' && item.children) {
+                item.children.forEach(child => {
+                    if (child.type === 'link') {
+                        bookmarks.push(child);
+                    } else if (child.type === 'folder') {
+                        bookmarks = bookmarks.concat(getBookmarksByFolder(child));
+                    }
+                });
+            }
+            return bookmarks;
+        }
+
+        /**
+         * 渲染文件夹到侧边栏
+         */
+        function renderFolders(data) {
+            const folderList = document.getElementById('folder-list');
+            
+            // 添加“全部”文件夹
+            const allLi = document.createElement('li');
+            allLi.className = 'folder-item';
+            allLi.innerHTML = `<div class="folder-name"><i class="fa fa-chevron-right"></i> 全部</div>`;
+            folderList.appendChild(allLi);
+
+            // 添加点击事件到“全部”文件夹
+            allLi.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 切换“全部”文件夹的展开状态
+                allLi.classList.toggle('open');
+                const icon = allLi.querySelector('i.fa-chevron-right, i.fa-chevron-down');
+                const isOpen = allLi.classList.contains('open');
+                if (isOpen) {
+                    icon.classList.remove('fa-chevron-right');
+                    icon.classList.add('fa-chevron-down');
+                } else {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-right');
+                }
+
+                if (isOpen) {
+                    // 关闭所有其他文件夹
+                    const otherFolders = document.querySelectorAll('.folder-item:not(:first-child)');
+                    otherFolders.forEach(folder => {
+                        folder.classList.remove('open');
+                        const folderIcon = folder.querySelector('i.fa-chevron-down');
+                        if (folderIcon) {
+                            folderIcon.classList.remove('fa-chevron-down');
+                            folderIcon.classList.add('fa-chevron-right');
+                        }
+                    });
+                    // 渲染所有书签
+                    loadAllBookmarks(data);
+                } else {
+                    // 清空书签区域
+                    const bookmarkGrid = document.getElementById('bookmark-grid');
+                    bookmarkGrid.innerHTML = '';
+                }
+            });
+
+            // 递归创建文件夹列表
+            data.forEach(item => {
+                if (item.type === 'folder') {
+                    const folderItem = createFolderItem(item);
+                    if (folderItem) folderList.appendChild(folderItem);
+                }
+            });
+        }
+
+        /**
+         * 渲染书签到主内容区
+         * @param {Array} bookmarks - 书签数组
+         */
+        function renderBookmarks(bookmarks) {
+            const bookmarkGrid = document.getElementById('bookmark-grid');
+            bookmarkGrid.innerHTML = ''; // 清空现有书签
+
+            bookmarks.forEach(bookmark => {
+                const bookmarkDiv = document.createElement('div');
+                bookmarkDiv.className = 'bookmark';
+
+                bookmarkDiv.innerHTML = `
+                    <img src="${bookmark.icon}" alt="${bookmark.title} 图标">
+                    <a href="${bookmark.url}" target="_blank">${bookmark.title}</a>
+                `;
+
+                bookmarkGrid.appendChild(bookmarkDiv);
+            });
+        }
+
+        /**
+         * 加载和渲染所有书签
+         */
+        function loadAllBookmarks(data) {
+            const allBookmarks = getAllBookmarks(data);
+            renderBookmarks(allBookmarks);
+        }
+
+        /**
+         * 根据文件夹选择渲染书签
+         * @param {string} folderTitle - 选中的文件夹名称
+         * @param {Array} data - 书签和文件夹数组
+         */
+        function filterBookmarks(folderTitle, data) {
+            if (folderTitle === '全部') {
+                loadAllBookmarks(data);
+                return;
+            }
+
+            // 查找对应的文件夹
+            const stack = [...data];
+            let targetFolder = null;
+
+            while (stack.length > 0) {
+                const current = stack.pop();
+                if (current.type === 'folder') {
+                    if (current.title === folderTitle) {
+                        targetFolder = current;
+                        break;
+                    }
+                    if (current.children && current.children.length > 0) {
+                        stack.push(...current.children);
+                    }
+                }
+            }
+
+            if (targetFolder) {
+                const bookmarks = getBookmarksByFolder(targetFolder);
+                renderBookmarks(bookmarks);
+            }
+        }
+
+        /**
+         * 初始化
+         */
+        fetch('bookmarks.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不是OK');
+                }
+                return response.json();
+            })
+            .then(data => {
+                renderFolders(data);
+
+                // 初始加载“全部”书签
+                loadAllBookmarks(data);
+
+                // 搜索功能
+                const searchInput = document.getElementById('search-input');
+                searchInput.addEventListener('input', function() {
+                    const query = this.value.toLowerCase();
+                    const allBookmarks = getAllBookmarks(data);
+                    const filteredBookmarks = allBookmarks.filter(bookmark => 
+                        bookmark.title.toLowerCase().includes(query)
+                    );
+                    renderBookmarks(filteredBookmarks);
+                });
+
+                // 文件夹点击事件
+                const folderNames = document.querySelectorAll('.folder-name');
+                folderNames.forEach(folder => {
+                    folder.addEventListener('click', (e) => {
+                        // 阻止事件冒泡以避免同时触发展开/折叠
+                        e.stopPropagation();
+                        const folderTitle = folder.textContent.trim();
+                        filterBookmarks(folderTitle, data);
+                    });
+                });
+            })
+            .catch(error => {
+                console.error('加载书签时出错:', error);
+            });
+    </script>
+
+</body>
+</html>
